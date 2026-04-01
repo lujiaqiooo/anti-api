@@ -810,7 +810,7 @@ export async function fetchKiroQuotaSnapshot(account: ProviderAccount): Promise<
         bar: {
             key: "credit",
             label: "credit",
-            percentage: Math.max(0, Math.min(100, Math.round(remainingFraction * 100))),
+            percentage: Math.max(0, Math.min(100, Number((remainingFraction * 100).toFixed(2)))),
             resetTime: normalizeKiroResetTime(credit?.nextDateReset || usage.nextDateReset),
             valueText,
         },

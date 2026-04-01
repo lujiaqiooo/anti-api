@@ -1700,14 +1700,23 @@
 
             const displayName = account.displayName || account.accountId;
             const displaySubtitle = account.displaySubtitle || '';
+            const formatBarPercentage = (rawPercentage) => {
+                const numeric = Number(rawPercentage || 0);
+                const clamped = Math.max(0, Math.min(100, numeric));
+                if (provider === 'kiro') {
+                    return Number.isInteger(clamped) ? String(clamped) : clamped.toFixed(2).replace(/\.?0+$/, '');
+                }
+                return String(Math.round(clamped));
+            };
 
             const barHtml = bars.map(bar => {
-                    const percentage = Math.max(0, Math.min(100, Math.round(bar.percentage || 0)));
+                    const percentage = Math.max(0, Math.min(100, Number(bar.percentage || 0)));
+                    const percentageText = formatBarPercentage(percentage);
                     const zedSupported = provider === 'zed' && percentage > 0;
                     const barLabel = provider === 'kiro' && displaySubtitle ? displaySubtitle : bar.label;
                     const barValue = provider === 'zed'
                         ? (zedSupported ? 'supported' : 'unsupported')
-                        : `${bar.valueText ? `${bar.valueText} ` : ''}${percentage}%`;
+                        : `${bar.valueText ? `${bar.valueText} ` : ''}${percentageText}%`;
                     return `
                         <div class="space-y-1">
                             <div class="flex items-center justify-between text-xs text-gray-400">

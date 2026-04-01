@@ -77,7 +77,7 @@ test("fetchKiroQuotaSnapshot reads CodeWhisperer usage limits and email", async 
             bar: {
                 key: "credit",
                 label: "credit",
-                percentage: 100,
+                percentage: 99.98,
                 resetTime: "2026-05-01T00:00:00.000Z",
                 valueText: "0.19/1,000",
             },
