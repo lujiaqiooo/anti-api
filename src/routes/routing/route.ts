@@ -3,6 +3,7 @@ import consola from "consola"
 import { authStore } from "~/services/auth/store"
 import { listCopilotModelsForAccount } from "~/services/copilot/chat"
 import { listCodexModelsForAccount } from "~/services/codex/chat"
+import { listKiroModelsForAccount } from "~/services/kiro/chat"
 import { fetchAntigravityModels } from "~/services/antigravity/quota-fetch"
 import { listZedModelsForAccount } from "~/services/zed/chat"
 import {
@@ -49,6 +50,8 @@ const ANTIGRAVITY_SYNC_TTL_MS = 60_000
 const ANTIGRAVITY_SYNC_TIMEOUT_MS = 800
 const ZED_SYNC_TTL_MS = 60_000
 const ZED_SYNC_TIMEOUT_MS = 800
+const KIRO_SYNC_TTL_MS = 60_000
+const KIRO_SYNC_TIMEOUT_MS = 800
 const QUOTA_TIMEOUT_MS = 1200
 const QUOTA_TTL_MS = 15_000
 
@@ -60,6 +63,8 @@ let lastAntigravitySyncAt = 0
 let antigravitySyncInFlight: Promise<void> | null = null
 let lastZedSyncAt = 0
 let zedSyncInFlight: Promise<void> | null = null
+let lastKiroSyncAt = 0
+let kiroSyncInFlight: Promise<void> | null = null
 let lastQuotaSnapshot: Awaited<ReturnType<typeof getAggregatedQuota>> | null = null
 let lastQuotaAt = 0
 let quotaInFlight: Promise<Awaited<ReturnType<typeof getAggregatedQuota>> | null> | null = null
@@ -359,6 +364,29 @@ routingRouter.get("/config", async (c) => {
         }
     }
 
+    if (kiroAccounts.length === 0) {
+        lastKiroSyncAt = 0
+    } else if (now - lastKiroSyncAt > KIRO_SYNC_TTL_MS) {
+        if (!kiroSyncInFlight) {
+            lastKiroSyncAt = now
+            kiroSyncInFlight = (async () => {
+                try {
+                    for (const account of kiroAccounts) {
+                        try {
+                            const remoteModels = listKiroModelsForAccount()
+                            consola.debug(`[routing] Kiro models synced (${remoteModels.length}) from ${account.id}`)
+                        } catch (error) {
+                            const message = error instanceof Error ? error.message : String(error)
+                            consola.debug(`[routing] Kiro models sync skipped ${account.id}: ${message}`)
+                        }
+                    }
+                } finally {
+                    kiroSyncInFlight = null
+                }
+            })()
+        }
+    }
+
     const syncWaiters: Promise<unknown>[] = []
     if (copilotSyncInFlight) {
         syncWaiters.push(settleWithTimeout(copilotSyncInFlight, COPILOT_SYNC_TIMEOUT_MS))
@@ -371,6 +399,9 @@ routingRouter.get("/config", async (c) => {
     }
     if (zedSyncInFlight) {
         syncWaiters.push(settleWithTimeout(zedSyncInFlight, ZED_SYNC_TIMEOUT_MS))
+    }
+    if (kiroSyncInFlight) {
+        syncWaiters.push(settleWithTimeout(kiroSyncInFlight, KIRO_SYNC_TIMEOUT_MS))
     }
     if (syncWaiters.length > 0) {
         await Promise.all(syncWaiters)

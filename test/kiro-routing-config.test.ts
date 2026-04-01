@@ -17,8 +17,21 @@ const accountsByProvider: Record<Provider, ProviderAccount[]> = {
 let tempHome: string | null = null
 let prevHome: string | undefined
 let prevProfile: string | undefined
+const debugCalls: string[] = []
 
 function setupRoutingMocks(): void {
+    mock.module("consola", () => ({
+        default: {
+            debug: (...args: unknown[]) => {
+                debugCalls.push(args.map(arg => String(arg)).join(" "))
+            },
+            warn: () => {},
+            success: () => {},
+            error: () => {},
+            info: () => {},
+        },
+    }))
+
     mock.module("~/services/auth/store", () => ({
         authStore: {
             listAccounts: (provider?: Provider) => {
@@ -77,6 +90,13 @@ function setupRoutingMocks(): void {
     mock.module("~/services/antigravity/quota-fetch", () => ({
         fetchAntigravityModels: async () => ({ models: {} }),
     }))
+
+    mock.module("~/services/kiro/chat", () => ({
+        listKiroModelsForAccount: () => [
+            { id: "claude-opus-4-6", label: "Kiro - Claude Opus 4.6" },
+            { id: "claude-sonnet-4-6", label: "Kiro - Claude Sonnet 4.6" },
+        ],
+    }))
 }
 
 async function getRoutingRouter() {
@@ -106,6 +126,7 @@ beforeEach(() => {
         label: "Kiro Main",
         createdAt: "2026-04-01T00:00:00.000Z",
     }]
+    debugCalls.length = 0
 })
 
 afterEach(() => {
@@ -138,4 +159,12 @@ test("routing config includes kiro accounts and static kiro models", async () =>
     })
     expect(data.models.kiro.some((model: { id: string }) => model.id === "claude-opus-4-6-thinking")).toBe(true)
     expect(data.accountModels.kiro["kiro-1"].some((model: { id: string }) => model.id === "claude-haiku-4-5")).toBe(true)
+})
+
+test("routing config logs kiro model sync", async () => {
+    const routingRouter = await getRoutingRouter()
+    const res = await routingRouter.request("/config")
+
+    expect(res.status).toBe(200)
+    expect(debugCalls.some(line => line.includes("[routing] Kiro models synced (2) from kiro-1"))).toBe(true)
 })
