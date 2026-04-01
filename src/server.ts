@@ -21,10 +21,12 @@ import { accountManager } from "./services/antigravity/account-manager"
 import { loadRoutingConfig } from "./services/routing/config"
 import { getProviderModels } from "./services/routing/models"
 import { importCodexAuthSources, removeCodexAuthArtifacts } from "./services/codex/oauth"
+import { importKiroAuthSources } from "./services/kiro/oauth"
 import { loadSettings, saveSettings } from "./services/settings"
 import { pingAccount } from "./services/ping"
 import { summarizeUpstreamError, UpstreamError } from "./lib/error"
 import { authStore } from "./services/auth/store"
+import type { AuthProvider } from "./services/auth/types"
 
 import { formatLogTime, getRequestLogContext, runWithRequestContext } from "./lib/logger"
 import { initLogCapture, setLogCaptureEnabled } from "./lib/log-buffer"
@@ -56,6 +58,7 @@ server.use(async (c, next) => {
                     codex: "ChatGPT Codex",
                     antigravity: "Antigravity",
                     zed: "Zed",
+                    kiro: "Kiro",
                 }
                 const providerName = providerNames[ctx.provider] || ctx.provider
                 const accountPart = ctx.account ? ` >> ${ctx.account}` : ""
@@ -72,12 +75,22 @@ server.use(cors())
 
 // 启动时自动加载已保存的认证
 initAuth()
-accountManager.load()
+if (typeof accountManager.load === "function") {
+    accountManager.load()
+}
 
 // 自动导入 Codex 账户 (从 ~/.codex/auth.json 和 ~/.cli-proxy-api/)
 importCodexAuthSources().then(result => {
     if (result.accounts.length > 0) {
         consola.success(`Codex: Imported ${result.accounts.length} account(s) from ${result.sources.join(", ")}`)
+    }
+}).catch(err => {
+    void err
+})
+
+importKiroAuthSources().then(result => {
+    if (result.accounts.length > 0) {
+        consola.success(`Kiro: Imported ${result.accounts.length} account(s) from ${result.sources.join(", ")}`)
     }
 }).catch(err => {
     void err
@@ -167,20 +180,26 @@ server.route("/messages", messageRoutes)
 const modelsHandler = (c: any) => {
     const now = new Date().toISOString()
     const routingConfig = loadRoutingConfig()
+    const providers: AuthProvider[] = ["antigravity", "kiro", "codex", "copilot", "zed"]
+    type ApiModelEntry = {
+        id: string
+        name: string
+        owned_by?: string
+    }
     const routeModels = (routingConfig.flows || []).map(flow => ({
         id: flow.name,
         name: `Route: ${flow.name}`,
         owned_by: "routing",
     }))
-    const providerModels = ["antigravity", "codex", "copilot", "zed"].flatMap((provider) =>
-        getProviderModels(provider as any).map(model => ({
+    const providerModels = providers.flatMap((provider) =>
+        getProviderModels(provider).map(model => ({
             id: model.id,
             name: model.label,
             owned_by: provider,
         }))
     )
     const seen = new Set<string>()
-    const models = [...AVAILABLE_MODELS, ...providerModels, ...routeModels].filter(model => {
+    const models: ApiModelEntry[] = [...AVAILABLE_MODELS, ...providerModels, ...routeModels].filter(model => {
         if (seen.has(model.id)) return false
         seen.add(model.id)
         return true
@@ -194,8 +213,8 @@ const modelsHandler = (c: any) => {
             object: "model",         // OpenAI format
             created_at: now,         // Anthropic format (RFC 3339)
             created: Date.now(),     // OpenAI format (unix timestamp)
-            owned_by: "owned_by" in m ? (m.owned_by as string) : "antigravity",
-            display_name: "name" in m ? (m.name as string) : m.id,
+            owned_by: m.owned_by || "antigravity",
+            display_name: m.name,
         })),
         has_more: false,
         first_id: models[0]?.id,
@@ -245,7 +264,7 @@ server.post("/accounts/ping", async (c) => {
     if (!provider || !accountId) {
         return c.json({ success: false, error: "provider and accountId are required" }, 400)
     }
-    if (!["antigravity", "codex", "copilot", "zed"].includes(provider)) {
+    if (!["antigravity", "kiro", "codex", "copilot", "zed"].includes(provider)) {
         return c.json({ success: false, error: "Unsupported provider" }, 400)
     }
 
@@ -297,7 +316,7 @@ server.delete("/accounts/:id", async (c) => {
     // 这覆盖了 token 过期或通过其他方式添加的账号
     if (!success) {
         // 尝试所有 provider 类型
-        for (const provider of ["antigravity", "codex", "copilot", "zed"] as const) {
+        for (const provider of ["antigravity", "kiro", "codex", "copilot", "zed"] as const) {
             if (authStore.deleteAccount(provider, accountId)) {
                 success = true
                 break

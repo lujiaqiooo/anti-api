@@ -1,5 +1,6 @@
 import { AVAILABLE_MODELS } from "~/lib/config"
 import type { AuthProvider } from "~/services/auth/types"
+import { KIRO_STATIC_MODELS } from "~/services/kiro/models"
 
 export interface ProviderModelOption {
     id: string
@@ -42,6 +43,7 @@ const COPILOT_STATIC_MODELS: ProviderModelOption[] = [
 ]
 
 const ZED_STATIC_MODELS: ProviderModelOption[] = []
+const KIRO_MODELS: ProviderModelOption[] = [...KIRO_STATIC_MODELS]
 
 let dynamicCopilotModels: ProviderModelOption[] = []
 let dynamicCodexModels: ProviderModelOption[] = []
@@ -218,6 +220,10 @@ export function getProviderModels(provider: AuthProvider): ProviderModelOption[]
         )
     }
 
+    if (provider === "kiro") {
+        return KIRO_MODELS
+    }
+
     return []
 }
 
@@ -250,6 +256,9 @@ export function getProviderModelsForAccount(provider: AuthProvider, accountId: s
         if (dynamic && dynamic.length > 0) {
             return mergeModelOptions(dynamic, ZED_STATIC_MODELS)
         }
+        return getProviderModels(provider)
+    }
+    if (provider === "kiro") {
         return getProviderModels(provider)
     }
     return []

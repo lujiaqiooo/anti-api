@@ -11,6 +11,7 @@ import { debugCodexOAuth, importCodexAuthSources, startCodexCliLogin, getCodexCl
 import { startCopilotDeviceFlow, pollCopilotSession, importCopilotAuthFiles } from "~/services/copilot/oauth"
 import { getIdeAuthStatus, logoutIdeSession } from "~/services/antigravity/ide-switch"
 import { importZedLocalAccount } from "~/services/zed/oauth"
+import { createKiroManualAccount, importKiroAuthSources } from "~/services/kiro/oauth"
 
 export const authRouter = new Hono()
 
@@ -32,6 +33,7 @@ authRouter.get("/accounts", (c) => {
             codex: authStore.listSummaries("codex"),
             copilot: authStore.listSummaries("copilot"),
             zed: authStore.listSummaries("zed"),
+            kiro: authStore.listSummaries("kiro"),
         },
     })
 })
@@ -50,7 +52,22 @@ authRouter.post("/import", (c) => {
 authRouter.post("/login", async (c) => {
     try {
         // 尝试解析 body，如果为空则触发 OAuth
-        let body: { accessToken?: string; refreshToken?: string; email?: string; name?: string; provider?: string; force?: boolean } = {}
+        let body: {
+            accessToken?: string
+            refreshToken?: string
+            email?: string
+            name?: string
+            label?: string
+            provider?: string
+            force?: boolean
+            region?: string
+            machineId?: string
+            profileArn?: string
+            authMethod?: string
+            clientIdHash?: string
+            clientId?: string
+            clientSecret?: string
+        } = {}
         try {
             const text = await c.req.text()
             if (text && text.trim()) {
@@ -144,6 +161,56 @@ authRouter.post("/login", async (c) => {
                     login: account.login,
                     label: account.label,
                     source: account.authSource,
+                },
+            })
+        }
+
+        if (provider === "kiro") {
+            if (!body.refreshToken?.trim()) {
+                const imported = await importKiroAuthSources()
+                if (imported.accounts.length === 0) {
+                    return c.json({
+                        success: false,
+                        error: "Kiro local auth files not found. Expected ~/.aws/sso/cache/kiro-auth-token.json.",
+                    }, 400)
+                }
+                const account = imported.accounts[0]
+                return c.json({
+                    success: true,
+                    provider: "kiro",
+                    status: "success",
+                    source: "import",
+                    sources: imported.sources,
+                    account: {
+                        id: account.id,
+                        email: account.email,
+                        label: account.label,
+                        region: account.region,
+                    },
+                })
+            }
+            const account = await createKiroManualAccount({
+                refreshToken: body.refreshToken,
+                email: body.email,
+                label: body.label,
+                authMethod: body.authMethod,
+                clientIdHash: body.clientIdHash,
+                clientId: body.clientId,
+                clientSecret: body.clientSecret,
+                region: body.region,
+                machineId: body.machineId,
+                profileArn: body.profileArn,
+            })
+            return c.json({
+                success: true,
+                provider: "kiro",
+                status: "success",
+                source: "manual",
+                account: {
+                    id: account.id,
+                    email: account.email,
+                    label: account.label,
+                    region: account.region,
                 },
             })
         }

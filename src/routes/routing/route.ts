@@ -79,7 +79,7 @@ async function settleWithTimeout<T>(promise: Promise<T>, timeoutMs: number): Pro
     return result as { ok: boolean; value?: T; error?: Error; timedOut?: boolean }
 }
 
-function resolveAccountLabel(provider: "antigravity" | "codex" | "copilot" | "zed", accountId: string, fallback?: string): string {
+function resolveAccountLabel(provider: "antigravity" | "codex" | "copilot" | "zed" | "kiro", accountId: string, fallback?: string): string {
     if (accountId === "auto") return "auto"
     const account = authStore.getAccount(provider, accountId)
     return account?.label || account?.email || account?.login || fallback || accountId
@@ -109,7 +109,7 @@ function syncAccountRoutingLabels(accountRouting?: AccountRoutingConfig): Accoun
     }
 }
 
-function listAccountsInOrder(provider: "antigravity" | "codex" | "copilot" | "zed"): ProviderAccount[] {
+function listAccountsInOrder(provider: "antigravity" | "codex" | "copilot" | "zed" | "kiro"): ProviderAccount[] {
     let accounts: ProviderAccount[] = []
     try {
         accounts = authStore.listAccounts(provider) || []
@@ -173,6 +173,7 @@ routingRouter.get("/config", async (c) => {
     const codexAccounts = listAccountsInOrder("codex")
     const copilotAccounts = listAccountsInOrder("copilot")
     const zedAccounts = listAccountsInOrder("zed")
+    const kiroAccounts = listAccountsInOrder("kiro")
 
     const now = Date.now()
     if (copilotAccounts.length === 0) {
@@ -380,6 +381,7 @@ routingRouter.get("/config", async (c) => {
         codex: codexAccounts.map(toSummary),
         copilot: copilotAccounts.map(toSummary),
         zed: zedAccounts.map(toSummary),
+        kiro: kiroAccounts.map(toSummary),
     }
 
     const models = {
@@ -387,6 +389,7 @@ routingRouter.get("/config", async (c) => {
         codex: getProviderModels("codex"),
         copilot: getProviderModels("copilot"),
         zed: getProviderModels("zed"),
+        kiro: getProviderModels("kiro"),
     }
 
     const accountModels = {
@@ -394,6 +397,7 @@ routingRouter.get("/config", async (c) => {
         codex: Object.fromEntries(codexAccounts.map(account => [account.id, getProviderModelsForAccount("codex", account.id)])),
         copilot: Object.fromEntries(copilotAccounts.map(account => [account.id, getProviderModelsForAccount("copilot", account.id)])),
         zed: Object.fromEntries(zedAccounts.map(account => [account.id, getProviderModelsForAccount("zed", account.id)])),
+        kiro: Object.fromEntries(kiroAccounts.map(account => [account.id, getProviderModelsForAccount("kiro", account.id)])),
     }
 
     // Get quota data for displaying on model blocks
@@ -494,6 +498,7 @@ routingRouter.post("/cleanup", async (c) => {
     const validCodex = new Set(authStore.listSummaries("codex").map(a => a.id || a.email))
     const validCopilot = new Set(authStore.listSummaries("copilot").map(a => a.id || a.email))
     const validZed = new Set(authStore.listSummaries("zed").map(a => a.id || a.email))
+    const validKiro = new Set(authStore.listSummaries("kiro").map(a => a.id || a.email))
 
     let removedCount = 0
 
@@ -510,6 +515,8 @@ routingRouter.post("/cleanup", async (c) => {
                 isValid = validCopilot.has(entry.accountId)
             } else if (entry.provider === "zed") {
                 isValid = validZed.has(entry.accountId)
+            } else if (entry.provider === "kiro") {
+                isValid = validKiro.has(entry.accountId)
             }
             if (!isValid) {
                 removedCount++
@@ -533,6 +540,8 @@ routingRouter.post("/cleanup", async (c) => {
                     isValid = validCopilot.has(entry.accountId)
                 } else if (entry.provider === "zed") {
                     isValid = validZed.has(entry.accountId)
+                } else if (entry.provider === "kiro") {
+                    isValid = validKiro.has(entry.accountId)
                 }
                 if (!isValid) {
                     removedCount++

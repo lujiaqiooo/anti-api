@@ -11,6 +11,7 @@ import type { ProviderAccount } from "~/services/auth/types"
 import { UpstreamError } from "~/lib/error"
 import { getDataDir } from "~/lib/data-dir"
 import { fetchZedAccountOverview } from "~/services/zed/chat"
+import { fetchKiroQuotaSnapshot } from "~/services/kiro/chat"
 
 type ModelInfo = AntigravityModelInfo
 
@@ -22,16 +23,18 @@ type AccountBar = {
 }
 
 export type AccountQuotaView = {
-    provider: "antigravity" | "codex" | "copilot" | "zed"
+    provider: "antigravity" | "codex" | "copilot" | "zed" | "kiro"
     accountId: string
     displayName: string
+    displaySubtitle?: string
     bars: AccountBar[]
 }
 
 type QuotaCacheEntry = {
-    provider: "antigravity" | "codex" | "copilot" | "zed"
+    provider: "antigravity" | "codex" | "copilot" | "zed" | "kiro"
     accountId: string
     displayName: string
+    displaySubtitle?: string
     bars: AccountBar[]
     updatedAt: string
 }
@@ -124,9 +127,23 @@ function defaultZedBars(): AccountBar[] {
     return [{ key: "hosted", label: "hosted", percentage: 0 }]
 }
 
+function defaultKiroBars(): AccountBar[] {
+    return [{ key: "credit", label: "credit", percentage: 0 }]
+}
+
+function getKiroDisplayName(account: Pick<ProviderAccount, "email" | "label" | "id">): string {
+    if (account.email?.trim()) {
+        const email = account.email.trim()
+        return email.split("@")[0] || email
+    }
+    return account.label || account.id
+}
+
 function buildCachedViews(provider: QuotaCacheEntry["provider"], accounts: ProviderAccount[]): AccountQuotaView[] {
     return accounts.map(account => {
-        const displayName = account.email || account.login || account.id
+        const displayName = provider === "kiro"
+            ? getKiroDisplayName(account)
+            : account.email || account.login || account.id
         const cachedBars = getCachedBars(provider, account.id)
         const bars = cachedBars || (
             provider === "antigravity"
@@ -135,12 +152,15 @@ function buildCachedViews(provider: QuotaCacheEntry["provider"], accounts: Provi
                     ? defaultCodexBars()
                     : provider === "copilot"
                         ? defaultCopilotBars()
-                        : defaultZedBars()
+                        : provider === "zed"
+                            ? defaultZedBars()
+                            : defaultKiroBars()
         )
         return {
             provider,
             accountId: account.id,
             displayName,
+            displaySubtitle: provider === "kiro" ? account.subscriptionTitle : undefined,
             bars,
         }
     })
@@ -157,8 +177,9 @@ export async function getAggregatedQuota(): Promise<{
     const codexAccounts = authStore.listAccounts("codex")
     const copilotAccounts = authStore.listAccounts("copilot")
     const zedAccounts = authStore.listAccounts("zed")
+    const kiroAccounts = authStore.listAccounts("kiro")
 
-    const [antigravity, codex, copilot, zed] = await Promise.all([
+    const [antigravity, codex, copilot, zed, kiro] = await Promise.all([
         withTimeout(
             fetchAntigravityQuotas(antigravityAccounts),
             PROVIDER_FETCH_TIMEOUT_MS,
@@ -183,12 +204,18 @@ export async function getAggregatedQuota(): Promise<{
             () => buildCachedViews("zed", zedAccounts),
             "Zed",
         ),
+        withTimeout(
+            fetchKiroQuotas(kiroAccounts),
+            PROVIDER_FETCH_TIMEOUT_MS,
+            () => buildCachedViews("kiro", kiroAccounts),
+            "Kiro",
+        ),
     ])
     saveQuotaCache()
 
     return {
         timestamp: new Date().toISOString(),
-        accounts: [...antigravity, ...codex, ...copilot, ...zed],
+        accounts: [...antigravity, ...codex, ...copilot, ...zed, ...kiro],
     }
 }
 
@@ -529,6 +556,52 @@ async function fetchZedQuotas(accounts: ProviderAccount[]): Promise<AccountQuota
                 accountId: account.id,
                 displayName: account.label || account.login || account.id,
                 bars: defaultZedBars(),
+            }
+        }
+    })
+    return Promise.all(promises)
+}
+
+async function fetchKiroQuotas(accounts: ProviderAccount[]): Promise<AccountQuotaView[]> {
+    const promises = accounts.map(async (account) => {
+        try {
+            const snapshot = await fetchKiroQuotaSnapshot(account)
+            const bars = [snapshot.bar]
+            const displayName = getKiroDisplayName(snapshot.account)
+            updateQuotaCache({
+                provider: "kiro",
+                accountId: snapshot.account.id,
+                displayName,
+                displaySubtitle: snapshot.subscriptionTitle,
+                bars,
+                updatedAt: new Date().toISOString(),
+            })
+            return {
+                provider: "kiro" as const,
+                accountId: snapshot.account.id,
+                displayName,
+                displaySubtitle: snapshot.subscriptionTitle,
+                bars,
+            }
+        } catch (error) {
+            consola.warn("Kiro quota fetch failed:", error)
+            const cachedBars = getCachedBars("kiro", account.id)
+            const displayName = getKiroDisplayName(account)
+            if (cachedBars) {
+                return {
+                    provider: "kiro" as const,
+                    accountId: account.id,
+                    displayName,
+                    displaySubtitle: account.subscriptionTitle,
+                    bars: cachedBars,
+                }
+            }
+            return {
+                provider: "kiro" as const,
+                accountId: account.id,
+                displayName,
+                displaySubtitle: account.subscriptionTitle,
+                bars: defaultKiroBars(),
             }
         }
     })

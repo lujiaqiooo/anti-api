@@ -1,5 +1,5 @@
-export type AuthProvider = "antigravity" | "codex" | "copilot" | "zed"
-export type AuthSource = "codex-cli" | "cli-proxy" | "zed-local"
+export type AuthProvider = "antigravity" | "codex" | "copilot" | "zed" | "kiro"
+export type AuthSource = "codex-cli" | "cli-proxy" | "zed-local" | "kiro-manual" | "kiro-local"
 
 export interface ProviderAccount {
     id: string
@@ -13,6 +13,15 @@ export interface ProviderAccount {
     projectId?: string
     organizationId?: string
     serverUrl?: string
+    authMethod?: string
+    clientIdHash?: string
+    clientId?: string
+    clientSecret?: string
+    region?: string
+    machineId?: string
+    profileArn?: string
+    subscriptionType?: string
+    subscriptionTitle?: string
     authSource?: AuthSource
     createdAt?: string
     updatedAt?: string

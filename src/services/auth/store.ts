@@ -20,6 +20,15 @@ interface StoredAuthFile {
     project_id?: string
     organization_id?: string
     server_url?: string
+    auth_method?: string
+    client_id_hash?: string
+    client_id?: string
+    client_secret?: string
+    region?: string
+    machine_id?: string
+    profile_arn?: string
+    subscription_type?: string
+    subscription_title?: string
     created_at?: string
     updated_at?: string
 }
@@ -53,6 +62,7 @@ function accountKey(provider: AuthProvider, id: string): string {
 function providerToStoredType(provider: AuthProvider): string {
     if (provider === "copilot") return "github-copilot"
     if (provider === "zed") return "zed"
+    if (provider === "kiro") return "kiro"
     return provider
 }
 
@@ -61,6 +71,7 @@ function storedTypeToProvider(type: string): AuthProvider | null {
     if (type === "antigravity") return "antigravity"
     if (type === "codex") return "codex"
     if (type === "zed") return "zed"
+    if (type === "kiro") return "kiro"
     return null
 }
 
@@ -101,6 +112,15 @@ function loadAccountFromFile(path: string): ProviderAccount | null {
             projectId: raw.project_id,
             organizationId: raw.organization_id,
             serverUrl: raw.server_url,
+            authMethod: raw.auth_method,
+            clientIdHash: raw.client_id_hash,
+            clientId: raw.client_id,
+            clientSecret: raw.client_secret,
+            region: raw.region,
+            machineId: raw.machine_id,
+            profileArn: raw.profile_arn,
+            subscriptionType: raw.subscription_type,
+            subscriptionTitle: raw.subscription_title,
             authSource: raw.auth_source as ProviderAccount["authSource"],
             createdAt: raw.created_at,
             updatedAt: raw.updated_at,
@@ -131,6 +151,15 @@ function writeAccountFile(account: ProviderAccount): void {
         project_id: account.projectId,
         organization_id: account.organizationId,
         server_url: account.serverUrl,
+        auth_method: account.authMethod,
+        client_id_hash: account.clientIdHash,
+        client_id: account.clientId,
+        client_secret: account.clientSecret,
+        region: account.region,
+        machine_id: account.machineId,
+        profile_arn: account.profileArn,
+        subscription_type: account.subscriptionType,
+        subscription_title: account.subscriptionTitle,
         created_at: account.createdAt || now,
         updated_at: now,
     }

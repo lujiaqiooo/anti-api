@@ -63,3 +63,42 @@ test("authStore rate limit toggles state", async () => {
     rmSync(dir, { recursive: true, force: true })
     restoreEnv(prevHome, prevProfile)
 })
+
+test("authStore persists kiro-specific fields", async () => {
+    const { dir, prevHome, prevProfile } = withTempHome()
+    const { authStore } = await import(`../src/services/auth/store.ts?${Date.now()}-save`)
+
+    authStore.saveAccount({
+        id: "kiro-1",
+        provider: "kiro",
+        email: "kiro@example.com",
+        label: "Kiro Primary",
+        accessToken: "access-token",
+        refreshToken: "refresh-token",
+        expiresAt: Date.now() + 60_000,
+        authMethod: "IdC",
+        clientIdHash: "client-hash",
+        clientId: "client-id",
+        clientSecret: "client-secret",
+        region: "us-east-1",
+        machineId: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+        profileArn: "arn:aws:iam::123456789012:role/Kiro",
+        subscriptionType: "pro",
+    })
+
+    const { authStore: reloadedStore } = await import(`../src/services/auth/store.ts?${Date.now()}-reload`)
+    const account = reloadedStore.getAccount("kiro", "kiro-1")
+
+    expect(account).not.toBeNull()
+    expect(account?.authMethod).toBe("IdC")
+    expect(account?.clientIdHash).toBe("client-hash")
+    expect(account?.clientId).toBe("client-id")
+    expect(account?.clientSecret).toBe("client-secret")
+    expect(account?.region).toBe("us-east-1")
+    expect(account?.machineId).toBe("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
+    expect(account?.profileArn).toBe("arn:aws:iam::123456789012:role/Kiro")
+    expect(account?.subscriptionType).toBe("pro")
+
+    rmSync(dir, { recursive: true, force: true })
+    restoreEnv(prevHome, prevProfile)
+})
