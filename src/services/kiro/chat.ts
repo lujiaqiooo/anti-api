@@ -127,7 +127,16 @@ export type KiroQuotaSnapshot = {
         label: "credit"
         percentage: number
         resetTime?: string
+        valueText?: string
     }
+}
+
+function formatKiroCreditValue(value: number): string {
+    if (!Number.isFinite(value)) return "0"
+    return new Intl.NumberFormat("en-US", {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 2,
+    }).format(value)
 }
 
 function normalizeKiroResetTime(value: string | number | undefined): string | undefined {
@@ -790,6 +799,9 @@ export async function fetchKiroQuotaSnapshot(account: ProviderAccount): Promise<
     const usageLimit = credit?.usageLimitWithPrecision ?? credit?.usageLimit ?? 0
     const remainingFraction = usageLimit > 0 ? Math.max(0, 1 - (currentUsage / usageLimit)) : 0
     const displayName = enrichedAccount.email?.trim() || enrichedAccount.label || enrichedAccount.id
+    const valueText = usageLimit > 0
+        ? `${formatKiroCreditValue(currentUsage)}/${formatKiroCreditValue(usageLimit)}`
+        : undefined
 
     return {
         account: enrichedAccount,
@@ -800,6 +812,7 @@ export async function fetchKiroQuotaSnapshot(account: ProviderAccount): Promise<
             label: "credit",
             percentage: Math.max(0, Math.min(100, Math.round(remainingFraction * 100))),
             resetTime: normalizeKiroResetTime(credit?.nextDateReset || usage.nextDateReset),
+            valueText,
         },
     }
 }

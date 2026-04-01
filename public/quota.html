@@ -1705,11 +1705,14 @@
                     const percentage = Math.max(0, Math.min(100, Math.round(bar.percentage || 0)));
                     const zedSupported = provider === 'zed' && percentage > 0;
                     const barLabel = provider === 'kiro' && displaySubtitle ? displaySubtitle : bar.label;
+                    const barValue = provider === 'zed'
+                        ? (zedSupported ? 'supported' : 'unsupported')
+                        : `${bar.valueText ? `${bar.valueText} ` : ''}${percentage}%`;
                     return `
                         <div class="space-y-1">
                             <div class="flex items-center justify-between text-xs text-gray-400">
                                 <span class="uppercase tracking-widest">${provider === 'zed' ? 'all models' : barLabel}</span>
-                                <span class="font-bold text-gray-400">${provider === 'zed' ? (zedSupported ? 'supported' : 'unsupported') : `${percentage}%`}</span>
+                                <span class="font-bold text-gray-400">${barValue}</span>
                             </div>
                             <div class="h-2 bg-gray-900 rounded-full overflow-hidden">
                                 <div class="progress-bar h-full rounded-full transition-all ${provider}-bar"

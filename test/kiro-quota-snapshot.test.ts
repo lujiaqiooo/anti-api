@@ -41,7 +41,7 @@ test("fetchKiroQuotaSnapshot reads CodeWhisperer usage limits and email", async 
                 usageBreakdownList: [{
                     resourceType: "CREDIT",
                     displayName: "Credit",
-                    currentUsageWithPrecision: 250,
+                    currentUsageWithPrecision: 0.19,
                     usageLimitWithPrecision: 1000,
                     nextDateReset: 1777593600,
                 }],
@@ -77,8 +77,9 @@ test("fetchKiroQuotaSnapshot reads CodeWhisperer usage limits and email", async 
             bar: {
                 key: "credit",
                 label: "credit",
-                percentage: 75,
+                percentage: 100,
                 resetTime: "2026-05-01T00:00:00.000Z",
+                valueText: "0.19/1,000",
             },
         })
         expect(savedAccount).toMatchObject({

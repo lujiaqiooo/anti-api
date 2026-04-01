@@ -20,6 +20,7 @@ type AccountBar = {
     label: string
     percentage: number
     resetTime?: string
+    valueText?: string
 }
 
 export type AccountQuotaView = {
