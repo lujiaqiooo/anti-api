@@ -1,10 +1,10 @@
 class AntiApi < Formula
   desc "Local OpenAI/Anthropic-compatible proxy for Antigravity, Codex, Copilot, and Zed"
-  homepage "https://github.com/ink1ing/anti-api"
-  url "https://github.com/ink1ing/anti-api/releases/download/v2.9.0/anti-api-homebrew-darwin-arm64.tar.gz"
-  sha256 "7185ac96b25c535c32567278203a3138b67aeef659c4be67891316461ee17987"
+  homepage "https://github.com/lujiaqiooo/anti-api"
+  url "https://github.com/lujiaqiooo/anti-api/releases/download/v2.9.0/anti-api-homebrew-darwin-arm64.tar.gz"
+  sha256 "788e6da7570ec02e28dc98c8bff748097f5d6b749822dff068f50e67f0a82ea3"
   license "MIT"
-  head "https://github.com/ink1ing/anti-api.git", branch: "main"
+  head "https://github.com/lujiaqiooo/anti-api.git", branch: "main"
 
   def install
     odie "Anti-API Homebrew packages currently support macOS Apple Silicon only." unless OS.mac? && Hardware::CPU.arm?

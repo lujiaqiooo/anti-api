@@ -1,0 +1,148 @@
+name: macos-homebrew-package
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to package (without leading v). Defaults to package.json version."
+        required: false
+        type: string
+      upload_to_release:
+        description: "Upload the generated tarball to the matching GitHub release tag."
+        required: false
+        default: false
+        type: boolean
+      sync_tap:
+        description: "Update and push the Homebrew tap repository after uploading the release asset."
+        required: false
+        default: false
+        type: boolean
+      tap_repository:
+        description: "Tap repository in owner/homebrew-repo form. Defaults to <owner>/homebrew-anti-api."
+        required: false
+        type: string
+
+jobs:
+  build:
+    runs-on: macos-14
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Resolve version
+        id: version
+        shell: bash
+        run: |
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION="$(node -p "require('./package.json').version")"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Build Homebrew bundle
+        run: bun run brew:bundle -- ${{ steps.version.outputs.version }} arm64
+
+      - name: Generate SHA256
+        shell: bash
+        run: |
+          shasum -a 256 dist/anti-api-homebrew-darwin-arm64.tar.gz | awk '{print $1}' > dist/anti-api-homebrew-darwin-arm64.tar.gz.sha256
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: anti-api-homebrew-darwin-arm64
+          path: |
+            dist/anti-api-homebrew-darwin-arm64.tar.gz
+            dist/anti-api-homebrew-darwin-arm64.tar.gz.sha256
+
+      - name: Upload to GitHub release
+        if: ${{ github.event.inputs.upload_to_release == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          gh release upload "v${{ steps.version.outputs.version }}" \
+            dist/anti-api-homebrew-darwin-arm64.tar.gz \
+            dist/anti-api-homebrew-darwin-arm64.tar.gz.sha256 \
+            --clobber
+
+      - name: Resolve tap repository
+        if: ${{ github.event.inputs.sync_tap == 'true' }}
+        id: tap
+        shell: bash
+        run: |
+          if [ -n "${{ github.event.inputs.tap_repository }}" ]; then
+            TAP_REPOSITORY="${{ github.event.inputs.tap_repository }}"
+          else
+            TAP_REPOSITORY="${{ github.repository_owner }}/homebrew-anti-api"
+          fi
+          echo "repository=$TAP_REPOSITORY" >> "$GITHUB_OUTPUT"
+
+      - name: Validate tap sync prerequisites
+        if: ${{ github.event.inputs.sync_tap == 'true' }}
+        shell: bash
+        run: |
+          if [ "${{ github.event.inputs.upload_to_release }}" != "true" ]; then
+            echo "Tap sync requires upload_to_release=true so Formula URLs point at a published asset."
+            exit 1
+          fi
+          if [ -z "${{ secrets.HOMEBREW_TAP_TOKEN }}" ]; then
+            echo "Missing HOMEBREW_TAP_TOKEN secret."
+            exit 1
+          fi
+
+      - name: Generate Formula for release asset
+        if: ${{ github.event.inputs.sync_tap == 'true' }}
+        env:
+          ANTI_API_GITHUB_REPO: ${{ github.repository }}
+        run: bun run brew:formula -- ${{ steps.version.outputs.version }}
+
+      - name: Clone tap repository
+        if: ${{ github.event.inputs.sync_tap == 'true' }}
+        env:
+          TAP_REPOSITORY: ${{ steps.tap.outputs.repository }}
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        shell: bash
+        run: |
+          git clone "https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/${TAP_REPOSITORY}.git" "$RUNNER_TEMP/homebrew-tap"
+
+      - name: Sync tap files
+        if: ${{ github.event.inputs.sync_tap == 'true' }}
+        env:
+          ANTI_API_GITHUB_REPO: ${{ github.repository }}
+          ANTI_API_HOMEBREW_TAP_REPO: ${{ steps.tap.outputs.repository }}
+        shell: bash
+        run: |
+          bash scripts/sync-homebrew-tap.sh "$RUNNER_TEMP/homebrew-tap"
+
+      - name: Commit and push tap update
+        if: ${{ github.event.inputs.sync_tap == 'true' }}
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        shell: bash
+        run: |
+          cd "$RUNNER_TEMP/homebrew-tap"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet; then
+            echo "No tap changes to commit."
+            exit 0
+          fi
+          git add Formula/anti-api.rb README.md
+          git commit -m "Update anti-api formula for v${VERSION}"
+          git push
