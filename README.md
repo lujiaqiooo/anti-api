@@ -19,7 +19,11 @@
 
 > **Disclaimer**: This project is based on reverse engineering of Antigravity. Future compatibility is not guaranteed. For long-term use, avoid updating Antigravity.
 
-## What's New (v2.9.0)
+## What's New (v2.9.0-kiro)
+
+- **Kiro provider support** - Added first-class Kiro integration with local auth import, Claude-family model routing, ping, routing panel support, and quota visibility
+- **Kiro quota card** - Kiro now shows real credit usage, subscription title, and reset timing instead of a fake access-only health bar
+- **Fork-ready Homebrew release flow** - Homebrew formula generation and tap sync now resolve your fork repository automatically instead of assuming the upstream repo
 
 - **Stable Homebrew package** - Homebrew now installs a prebuilt macOS Apple Silicon bundle, so `brew install anti-api` no longer depends on local Rust, LLVM, or Bun downloads
 - **WinGet distribution pipeline** - Added Windows portable packaging, WinGet manifest generation, and release workflow for `winget install anti-api`
@@ -72,7 +76,7 @@
 ## Features
 
 - **Flow + Account Routing** - Custom flows for non-official models, account chains for official models
-- **Four Providers** - Antigravity, Codex, GitHub Copilot, and Zed hosted models
+- **Five Providers** - Antigravity, Codex, GitHub Copilot, Kiro, and Zed hosted models
 - **Remote Access** - ngrok/cloudflared/localtunnel with one-click setup
 - **Full Dashboard** - Quota monitoring, routing config, settings panel
 - **Auto-Rotation** - Account switching on 429 errors
@@ -87,6 +91,14 @@
 - **What is not supported** - Automatic bulk discovery of many Zed accounts from one machine is not available in the same way as Codex/Copilot
 - **Quota monitor behavior** - Zed hosted models share one monthly spend pool across the account. Anti-API currently shows hosted access status and billing period, not exact remaining dollar credits
 - **Credit note** - Zed plan credit depends on the plan type. For example, Zed Student is documented by Zed as including $10/month in AI token credits, while standard Pro pages may show different included credit values
+
+## Kiro Account Notes
+
+- **Import model** - Clicking `Add Account -> Kiro` imports the current local Kiro login from `~/.aws/sso/cache/kiro-auth-token.json`
+- **Credential model** - Kiro uses AWS IdC-style auth. Anti-API reads the local `refreshToken`, `clientId`, `clientSecret`, and machine id, then refreshes access tokens automatically
+- **Model scope** - The Kiro provider currently exposes Claude-family models only. Experimental Kiro models such as DeepSeek, MiniMax, and Qwen are intentionally hidden in v1
+- **Quota monitor behavior** - The Kiro quota card shows real credit usage from the Kiro runtime API, plus subscription title and reset time
+- **Local dependency** - Auto-import assumes Kiro has already been logged in at least once on the same machine
 
 ## Free Gemini Pro Access
 
@@ -104,7 +116,7 @@ https://batch.1key.me
 
 ```bash
 # Add the tap
-brew tap ink1ing/anti-api
+brew tap lujiaqiooo/anti-api
 
 # Install Anti-API
 brew install anti-api
@@ -135,7 +147,7 @@ bun run src/main.ts start
 
 Double-click `start.bat` to launch.
 
-WinGet packaging is prepared in this repository. After the `winget-pkgs` submission is merged, the install path will be:
+WinGet packaging is prepared in this repository, but this fork currently ships the GitHub Release portable package first. If you publish your own WinGet manifest later, the install path can be:
 
 ```powershell
 winget install anti-api
@@ -416,7 +428,11 @@ MIT
 
 > **免责声明**：本项目基于 Antigravity 逆向开发，未来版本兼容性未知，长久使用请尽可能避免更新Antigravity。
 
-## 更新内容 (v2.9.0)
+## 更新内容 (v2.9.0-kiro)
+
+- **新增 Kiro Provider 支持** - 已接入一等 Kiro provider，支持本地登录态导入、Claude 家族模型路由、ping、routing 面板与 quota 展示
+- **更新 Kiro 配额卡片** - Kiro 卡片现在展示真实 credit 用量、订阅标题和重置时间，不再只是 access 健康状态
+- **适配 fork 的 Homebrew 发布链路** - Homebrew formula 生成与 tap 同步不再写死上游仓库，默认会按当前 fork 仓库地址生成
 
 - **稳定的 Homebrew 安装包** - Homebrew 现在直接安装预编译的 macOS Apple Silicon 包，`brew install anti-api` 不再依赖本地下载 Rust、LLVM 或 Bun
 - **新增 WinGet 发布链路** - 补齐了 Windows portable 打包、WinGet manifest 生成和 release workflow，为 `winget install anti-api` 做准备
@@ -438,7 +454,7 @@ MIT
 ## 特性
 
 - **Flow + Account 路由** - 自定义流控制非官方模型，官方模型使用账号链
-- **四家 Provider** - Antigravity、Codex、GitHub Copilot、Zed 托管模型
+- **五家 Provider** - Antigravity、Codex、GitHub Copilot、Kiro、Zed 托管模型
 - **远程访问** - ngrok/cloudflared/localtunnel 一键设置
 - **完整面板** - 配额监控、路由配置、设置面板
 - **自动轮换** - 429 错误时切换账号
@@ -454,13 +470,21 @@ MIT
 - **额度监控说明** - Zed 的 hosted models 共用同一个月度消耗池。Anti-API 当前展示的是 hosted access 状态和订阅周期，不是精确的剩余美元额度
 - **Credit 说明** - Zed 的月度 credit 取决于具体计划类型。例如 Zed Student 官方说明为每月 $10 AI token credits，而普通 Pro 页面可能显示不同额度
 
+## Kiro 账号说明
+
+- **导入方式** - 点击 `Add Account -> Kiro` 时，Anti-API 会读取 `~/.aws/sso/cache/kiro-auth-token.json` 中的本地 Kiro 登录态
+- **认证方式** - Kiro 使用 AWS IdC 风格认证。Anti-API 会读取本地 `refreshToken`、`clientId`、`clientSecret` 与 machine id，并自动刷新 access token
+- **模型范围** - 当前 Kiro provider 只暴露 Claude 家族模型，DeepSeek、MiniMax、Qwen 等实验模型默认不开放
+- **额度监控说明** - Kiro 卡片展示的是 Kiro runtime API 返回的真实 credit 用量、订阅标题与 reset time
+- **使用前提** - 自动导入依赖本机已经登录过一次 Kiro
+
 ## 快速开始
 
 ### Homebrew（macOS Apple Silicon）
 
 ```bash
 # 添加 tap
-brew tap ink1ing/anti-api
+brew tap lujiaqiooo/anti-api
 
 # 安装 Anti-API
 brew install anti-api
@@ -481,7 +505,7 @@ anti-api
 
 双击 `start.bat` 启动。
 
-仓库内已经补齐 WinGet 打包与 manifest 生成链路。待 `winget-pkgs` 合并后，可直接使用：
+仓库内已经补齐 WinGet 打包与 manifest 生成链路，但这个 fork 目前优先提供 GitHub Release 便携包。如果后续补齐自己的 WinGet manifest，则可直接使用：
 
 ```powershell
 winget install anti-api
