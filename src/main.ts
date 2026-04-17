@@ -119,6 +119,7 @@ const start = defineCommand({
             fetch: server.fetch,
             port: state.port,
             idleTimeout: 120,  // 2分钟超时，适应慢速 API 响应
+            maxRequestBodySize: 1024 * 1024 * 50,  // 50MB，防止长上下文被截断导致 JSON parse error
         })
 
         logStartupSuccess(state.port)
@@ -252,6 +253,7 @@ const remote = defineCommand({
             fetch: server.fetch,
             port: state.port,
             idleTimeout: 120,
+            maxRequestBodySize: 1024 * 1024 * 50,  // 50MB，防止长上下文被截断导致 JSON parse error
         })
 
         consola.success(`Anti-API local server started: http://localhost:${state.port}`)
