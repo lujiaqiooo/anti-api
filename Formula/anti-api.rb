@@ -1,8 +1,8 @@
 class AntiApi < Formula
   desc "Local OpenAI/Anthropic-compatible proxy for Antigravity, Codex, Copilot, and Zed"
   homepage "https://github.com/lujiaqiooo/anti-api"
-  url "https://github.com/lujiaqiooo/anti-api/releases/download/v2.9.0/anti-api-homebrew-darwin-arm64.tar.gz"
-  sha256 "788e6da7570ec02e28dc98c8bff748097f5d6b749822dff068f50e67f0a82ea3"
+  url "https://github.com/lujiaqiooo/anti-api/releases/download/v2.9.1/anti-api-homebrew-darwin-arm64.tar.gz"
+  sha256 "1bd754b6a4468fb3fab24ebd9ad7fde34ca7eabf7fb4ccc4da923cb4d9d07b64"
   license "MIT"
   head "https://github.com/lujiaqiooo/anti-api.git", branch: "main"
 
